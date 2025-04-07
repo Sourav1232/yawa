@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: yolo-freshness-app
+    env: python
+    buildCommand: ""
+    startCommand: detect_backend.py  # Replace with your Flask script filename
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
