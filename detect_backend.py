@@ -1,41 +1,47 @@
-from flask import Flask, Response
+from flask import Flask, request, send_file
 from flask_cors import CORS
 from ultralytics import YOLO
 import cv2
+import numpy as np
+from io import BytesIO
 
 app = Flask(__name__)
 CORS(app)
 
+print("✅ Loading YOLO model...")
 model = YOLO("A+B+O+L+P+GFreshnessDetection.pt")
-
-# Simulate webcam feed — this will later receive frames from another system (System A)
-cap = cv2.VideoCapture(0)  # Replace this with a video stream if needed
-
-def generate_frames():
-    while True:
-        success, frame = cap.read()
-        if not success:
-            break
-
-        # Run YOLOv8 detection
-        results = model(frame)
-        annotated_frame = results[0].plot()
-
-        # Encode to JPEG
-        _, buffer = cv2.imencode('.jpg', annotated_frame)
-        frame_bytes = buffer.tobytes()
-
-        # Yield as MJPEG frame
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+print("✅ Model loaded successfully")
 
 @app.route('/')
 def home():
-    return "🔥 Freshness Detection MJPEG Stream is Running!"
+    print("📡 Received GET request at '/'")
+    return "🔥 Freshness Detection API is Running!"
 
-@app.route('/stream')
-def stream():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+@app.route('/detect', methods=['POST'])
+def detect():
+    print("📩 Received POST request at '/detect'")
+    if 'frame' not in request.files:
+        print("❌ No frame found in request")
+        return "No frame uploaded", 400
+
+    try:
+        file = request.files['frame']
+        img_bytes = file.read()
+        print(f"📦 Received frame of size {len(img_bytes)} bytes")
+        np_img = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+
+        results = model(img)
+        print("✅ YOLO model inference done")
+        annotated_img = results[0].plot()
+
+        _, buffer = cv2.imencode('.jpg', annotated_img)
+        print("✅ Processed image encoded successfully")
+
+        return send_file(BytesIO(buffer), mimetype='image/jpeg')
+    except Exception as e:
+        print(f"❌ Error during detection: {e}")
+        return "Error processing frame", 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
