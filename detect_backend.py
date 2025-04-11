@@ -6,7 +6,7 @@ import numpy as np
 from io import BytesIO
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/detect": {"origins": "https://foodapp-seven-self.vercel.app"}})
 
 print("✅ Loading YOLO model...")
 model = YOLO("A+B+O+L+P+GFreshnessDetection.pt")
